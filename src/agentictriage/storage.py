@@ -10,6 +10,8 @@ from agentictriage.models import AuditRecord, PipelineResult, TenantPolicy, Tena
 
 
 class StateStore(AuditSink, Protocol):
+    async def health(self) -> None: ...
+
     async def get_policy(self, tenant_id: str) -> TenantPolicyRecord | None: ...
 
     async def put_policy(self, policy: TenantPolicy) -> TenantPolicyRecord: ...
@@ -30,6 +32,9 @@ class MemoryStateStore:
         self.events: list[AuditEvent] = []
         self.results: dict[tuple[str, str], PipelineResult] = {}
         self.policies: dict[str, TenantPolicyRecord] = {}
+
+    async def health(self) -> None:
+        return None
 
     async def append(self, event: AuditEvent) -> None:
         self.events.append(event)
@@ -96,6 +101,9 @@ class PostgresStateStore:
     @property
     def pool(self) -> asyncpg.Pool:
         return self._require_pool()
+
+    async def health(self) -> None:
+        await self._require_pool().fetchval("select 1")
 
     async def get_policy(self, tenant_id: str) -> TenantPolicyRecord | None:
         async with self._require_pool().acquire() as connection, connection.transaction():

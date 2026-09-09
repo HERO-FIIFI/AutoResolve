@@ -52,7 +52,16 @@ function age(value: string) {
 }
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${apiUrl}${path}`, { ...init, headers: apiHeaders });
+  let response: Response;
+  try {
+    response = await fetch(`${apiUrl}${path}`, {
+      ...init,
+      headers: apiHeaders,
+      signal: init?.signal ?? AbortSignal.timeout(8_000),
+    });
+  } catch {
+    throw new Error('Local API is unavailable. Docker is reconnecting; retrying automatically.');
+  }
   if (!response.ok) {
     const detail = await response.json().catch(() => null) as { detail?: string } | null;
     throw new Error(detail?.detail ?? `Request failed (${response.status})`);
@@ -74,30 +83,27 @@ export default function Home() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [health, currentPolicy, jobs, events] = await Promise.all([
-        fetch(`${apiUrl}/healthz`).then((response) => {
-          if (!response.ok) throw new Error('Triage API health check failed');
-          return response;
-        }),
+        api<{ status: string }>('/healthz'),
         api<Policy>('/v1/policy'),
         api<Escalation[]>('/v1/triage/jobs'),
         api<AuditRecord[]>('/v1/audit?limit=20'),
       ]);
-      setApiOnline(health.ok);
+      setApiOnline(health.status === 'ok');
       setPolicy(currentPolicy);
       setThreshold(currentPolicy.confidence_threshold);
       setLmStudioAllowed(currentPolicy.allowed_providers.includes('lmstudio'));
       setEscalations(jobs);
       setActivity(events);
+      setError(null);
     } catch (cause) {
       setApiOnline(false);
       setError(cause instanceof Error ? cause.message : 'Could not load operations data');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
@@ -105,6 +111,11 @@ export default function Home() {
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, [load]);
+  useEffect(() => {
+    if (apiOnline !== false) return;
+    const timer = window.setInterval(() => void load(true), 10_000);
+    return () => window.clearInterval(timer);
+  }, [apiOnline, load]);
   useEffect(() => {
     if (!selectedTicket && !policyOpen) return;
     const close = (event: KeyboardEvent) => {

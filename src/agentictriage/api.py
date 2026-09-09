@@ -105,7 +105,15 @@ async def policy_for(store: StateStore, principal: Identity) -> TenantPolicyReco
 
 
 @app.get("/healthz", include_in_schema=False)
-async def health() -> dict[str, str]:
+async def health(raw_request: Request) -> dict[str, str]:
+    store: StateStore = raw_request.app.state.store
+    try:
+        await store.health()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="database unavailable",
+        ) from exc
     return {"status": "ok"}
 
 

@@ -24,7 +24,9 @@ class Settings:
             cors_origins=tuple(
                 origin.strip()
                 for origin in os.getenv(
-                    "TRIAGE_CORS_ORIGINS", "http://localhost:3080,http://localhost:3004"
+                    "TRIAGE_CORS_ORIGINS",
+                    "http://localhost:3080,http://127.0.0.1:3080,"
+                    "http://localhost:3004,http://127.0.0.1:3004",
                 ).split(",")
                 if origin.strip()
             ),
