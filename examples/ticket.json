@@ -1,0 +1,9 @@
+{
+  "id": "ticket-1001",
+  "tenant_id": "example",
+  "subject": "Password reset",
+  "body": "My password reset link expired. What should I do?",
+  "region": "local",
+  "regulated": false
+}
+

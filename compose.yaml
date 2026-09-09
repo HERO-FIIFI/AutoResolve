@@ -1,0 +1,64 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: triage
+      POSTGRES_USER: triage_owner
+      POSTGRES_PASSWORD: triage_owner_local_only
+    volumes:
+      - triage-postgres:/var/lib/postgresql/data
+      - ./infra/postgres/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U triage_owner -d triage"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    networks: [triage-private]
+
+  api:
+    build: .
+    environment:
+      TRIAGE_DATABASE_URL: postgresql://triage_app:triage_local_only@postgres:5432/triage
+      TRIAGE_LMSTUDIO_BASE_URL: http://host.docker.internal:1234/v1
+      TRIAGE_LMSTUDIO_MODEL: ${TRIAGE_LMSTUDIO_MODEL:-qwen/qwen3.5-9b}
+      TRIAGE_LMSTUDIO_TIMEOUT_SECONDS: 60
+      TRIAGE_CORS_ORIGINS: http://localhost:3080
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [triage-private]
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: ["python", "-m", "agentictriage.worker"]
+    environment:
+      TRIAGE_DATABASE_URL: postgresql://triage_app:triage_local_only@postgres:5432/triage
+      TRIAGE_LMSTUDIO_BASE_URL: http://host.docker.internal:1234/v1
+      TRIAGE_LMSTUDIO_MODEL: ${TRIAGE_LMSTUDIO_MODEL:-qwen/qwen3.5-9b}
+      TRIAGE_LMSTUDIO_TIMEOUT_SECONDS: 60
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [triage-private]
+    restart: unless-stopped
+
+  admin-console:
+    build:
+      context: ./admin-console
+      args:
+        NEXT_PUBLIC_TRIAGE_API_URL: http://localhost:8080
+    ports:
+      - "127.0.0.1:3080:3000"
+    depends_on: [api]
+    networks: [triage-private]
+    restart: unless-stopped
+
+networks:
+  triage-private:
+    driver: bridge
+
+volumes:
+  triage-postgres:

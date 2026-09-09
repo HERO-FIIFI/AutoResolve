@@ -1,0 +1,10 @@
+[
+  {
+    "id": "kb-password-1",
+    "tenant_id": "example",
+    "kb_version": "2026-09-08",
+    "content": "If a password reset link expires, request a new link from the sign-in page.",
+    "score": 0
+  }
+]
+
