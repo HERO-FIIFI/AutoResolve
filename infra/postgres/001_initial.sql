@@ -54,11 +54,26 @@ create table if not exists triage_jobs (
   error text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  review_state text not null default 'not_required',
+  operator_response text,
+  reviewed_by text,
+  reviewed_at timestamptz,
   unique (tenant_id, idempotency_key)
 );
 
+alter table triage_jobs add column if not exists review_state text not null default 'not_required';
+alter table triage_jobs add column if not exists operator_response text;
+alter table triage_jobs add column if not exists reviewed_by text;
+alter table triage_jobs add column if not exists reviewed_at timestamptz;
+
+update triage_jobs set review_state = 'open'
+where review_state = 'not_required' and status = 'complete'
+  and result->'decision'->>'action' = 'escalate';
+
 create index if not exists triage_jobs_claim
   on triage_jobs (available_at, created_at) where status = 'pending';
+create index if not exists triage_jobs_open_review
+  on triage_jobs (tenant_id, created_at) where review_state = 'open';
 
 create or replace function claim_triage_job()
 returns table (id text, payload jsonb)

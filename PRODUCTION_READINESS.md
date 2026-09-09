@@ -13,7 +13,7 @@ Status reflects repository evidence, not intended future work.
 | GDPR export/deletion/retention | Not Started | Data lifecycle design pending |
 | Database tenant isolation | In Progress | PostgreSQL RLS schema and policies implemented; adversarial cross-tenant integration gate pending |
 | SSO (OIDC/SAML) | Not Started | Identity broker selection pending |
-| Per-tenant policy | In Progress | Persistent RLS-backed policy schema; authenticated administration endpoint pending |
+| Per-tenant policy | Done | RLS-backed, versioned policy is authoritative for sync and queued triage; RBAC administration API and audit events implemented |
 | Retry, timeout, and circuit breaker | Done | State machine and chaos tests |
 | Fail-safe all-provider behavior | Done | Explicit human escalation path and tests |
 | Idempotent processing | Done | PostgreSQL uniqueness and durable result replay verified |
@@ -30,6 +30,6 @@ Status reflects repository evidence, not intended future work.
 | Load testing | Not Started | SLA/concurrency target pending |
 | Chaos testing | In Progress | Provider failure paths covered; infrastructure chaos pending |
 | Architecture/OpenAPI/runbooks/ADRs | In Progress | Architecture and initial ADRs present; runbooks incomplete |
-| Admin console | In Progress | Functional responsive operations dashboard and dialogs; live records/auth integration pending |
+| Admin console | In Progress | Live policy, audit, escalation, and review workflows; enterprise SSO and remaining KB/observability surfaces pending |
 | CLI, REST API, webhooks | In Progress | CLI/API scaffolded; webhook delivery pending |
 | Cost governance | Not Started | Token accounting and tenant budget persistence pending |

@@ -1,6 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
+from agentictriage.jobs import JobReview
 from agentictriage.models import Action, Citation, Decision
 
 
@@ -30,3 +31,8 @@ def test_valid_respond_decision() -> None:
 def test_invalid_decisions_are_rejected(payload: dict[str, object]) -> None:
     with pytest.raises(ValidationError):
         Decision.model_validate(payload)
+
+
+def test_approved_review_requires_operator_response() -> None:
+    with pytest.raises(ValidationError):
+        JobReview(action="approve_response")

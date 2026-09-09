@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Literal
 
@@ -65,6 +66,20 @@ class TenantPolicy(BaseModel):
     confidence_threshold: float = Field(default=0.8, ge=0.0, le=1.0)
     allowed_providers: frozenset[str] = frozenset()
     allowed_regions: frozenset[str] = frozenset()
+
+
+class TenantPolicyRecord(TenantPolicy):
+    version: int = Field(ge=1)
+    updated_at: datetime
+
+
+class AuditRecord(BaseModel):
+    sequence_id: int = Field(ge=1)
+    ticket_id: NonEmpty
+    correlation_id: NonEmpty
+    event_type: NonEmpty
+    occurred_at: datetime
+    attributes: dict[str, object] = Field(default_factory=dict)
 
 
 class PipelineResult(BaseModel):

@@ -6,10 +6,16 @@ from typing import Protocol
 import asyncpg
 
 from agentictriage.audit import AuditEvent, AuditSink
-from agentictriage.models import PipelineResult
+from agentictriage.models import AuditRecord, PipelineResult, TenantPolicy, TenantPolicyRecord
 
 
 class StateStore(AuditSink, Protocol):
+    async def get_policy(self, tenant_id: str) -> TenantPolicyRecord | None: ...
+
+    async def put_policy(self, policy: TenantPolicy) -> TenantPolicyRecord: ...
+
+    async def list_audit(self, tenant_id: str, limit: int = 20) -> list[AuditRecord]: ...
+
     async def get_idempotent_result(
         self, tenant_id: str, idempotency_key: str
     ) -> PipelineResult | None: ...
@@ -23,9 +29,41 @@ class MemoryStateStore:
     def __init__(self) -> None:
         self.events: list[AuditEvent] = []
         self.results: dict[tuple[str, str], PipelineResult] = {}
+        self.policies: dict[str, TenantPolicyRecord] = {}
 
     async def append(self, event: AuditEvent) -> None:
         self.events.append(event)
+
+    async def get_policy(self, tenant_id: str) -> TenantPolicyRecord | None:
+        return self.policies.get(tenant_id) or await self.put_policy(
+            TenantPolicy(tenant_id=tenant_id)
+        )
+
+    async def put_policy(self, policy: TenantPolicy) -> TenantPolicyRecord:
+        from datetime import UTC, datetime
+
+        previous = self.policies.get(policy.tenant_id)
+        record = TenantPolicyRecord(
+            **policy.model_dump(),
+            version=(previous.version + 1 if previous else 1),
+            updated_at=datetime.now(UTC),
+        )
+        self.policies[policy.tenant_id] = record
+        return record
+
+    async def list_audit(self, tenant_id: str, limit: int = 20) -> list[AuditRecord]:
+        own = (event for event in reversed(self.events) if event.tenant_id == tenant_id)
+        return [
+            AuditRecord(
+                sequence_id=index,
+                ticket_id=event.ticket_id,
+                correlation_id=event.correlation_id,
+                event_type=event.event_type,
+                occurred_at=event.occurred_at,
+                attributes=event.attributes,
+            )
+            for index, event in enumerate(list(own)[:limit], start=1)
+        ]
 
     async def get_idempotent_result(
         self, tenant_id: str, idempotency_key: str
@@ -58,6 +96,63 @@ class PostgresStateStore:
     @property
     def pool(self) -> asyncpg.Pool:
         return self._require_pool()
+
+    async def get_policy(self, tenant_id: str) -> TenantPolicyRecord | None:
+        async with self._require_pool().acquire() as connection, connection.transaction():
+            await _tenant(connection, tenant_id)
+            row = await connection.fetchrow(
+                """
+                select tenant_id, confidence_threshold, allowed_providers, allowed_regions,
+                       version, updated_at
+                from tenant_policies where tenant_id = $1
+                """,
+                tenant_id,
+            )
+        return TenantPolicyRecord.model_validate(dict(row)) if row else None
+
+    async def put_policy(self, policy: TenantPolicy) -> TenantPolicyRecord:
+        async with self._require_pool().acquire() as connection, connection.transaction():
+            await _tenant(connection, policy.tenant_id)
+            row = await connection.fetchrow(
+                """
+                insert into tenant_policies
+                  (tenant_id, confidence_threshold, allowed_providers, allowed_regions)
+                values ($1, $2, $3, $4)
+                on conflict (tenant_id) do update set
+                  confidence_threshold = excluded.confidence_threshold,
+                  allowed_providers = excluded.allowed_providers,
+                  allowed_regions = excluded.allowed_regions,
+                  version = tenant_policies.version + 1,
+                  updated_at = now()
+                returning tenant_id, confidence_threshold, allowed_providers, allowed_regions,
+                          version, updated_at
+                """,
+                policy.tenant_id,
+                policy.confidence_threshold,
+                list(policy.allowed_providers),
+                list(policy.allowed_regions),
+            )
+        return TenantPolicyRecord.model_validate(dict(row))
+
+    async def list_audit(self, tenant_id: str, limit: int = 20) -> list[AuditRecord]:
+        async with self._require_pool().acquire() as connection, connection.transaction():
+            await _tenant(connection, tenant_id)
+            rows = await connection.fetch(
+                """
+                select sequence_id, ticket_id, correlation_id, event_type, occurred_at, attributes
+                from audit_events where tenant_id = $1
+                order by sequence_id desc limit $2
+                """,
+                tenant_id,
+                limit,
+            )
+        records: list[AuditRecord] = []
+        for row in rows:
+            value = dict(row)
+            if isinstance(value["attributes"], str):
+                value["attributes"] = json.loads(value["attributes"])
+            records.append(AuditRecord.model_validate(value))
+        return records
 
     async def append(self, event: AuditEvent) -> None:
         async with self._require_pool().acquire() as connection:
@@ -121,3 +216,7 @@ def _result(value: object) -> PipelineResult:
     if isinstance(value, str):
         return PipelineResult.model_validate_json(value)
     return PipelineResult.model_validate(value)
+
+
+async def _tenant(connection: asyncpg.Connection, tenant_id: str) -> None:
+    await connection.execute("select set_config('app.tenant_id', $1, true)", tenant_id)

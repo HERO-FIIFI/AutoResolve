@@ -22,10 +22,11 @@ provider allowlist explicitly enables `lmstudio`.
 When the app runs inside Docker Desktop, use
 `TRIAGE_LMSTUDIO_BASE_URL=http://host.docker.internal:1234/v1`. LM Studio must have its local server
 enabled and `TRIAGE_LMSTUDIO_MODEL` must match an identifier returned by `/v1/models`. Provider use
-is explicit: pass `--allow-lmstudio` to the CLI or include `lmstudio` and `local` in the API request's
-allowed-provider and allowed-region policy.
+is explicit: pass `--allow-lmstudio` to the CLI or enable `lmstudio` and `local` in the tenant's
+stored policy through the admin console or `/v1/policy` API. Triage requests cannot override this
+server-side policy.
 
-The current milestone is Phase 1 hardening. See [architecture](docs/architecture.md) and the
+The current milestone is Phase 2 enterprise readiness. See [architecture](docs/architecture.md) and the
 [production readiness matrix](PRODUCTION_READINESS.md).
 
 ## Local production stack
@@ -40,3 +41,7 @@ The console is available at `http://localhost:3080`, the API at `http://localhos
 documentation at `http://localhost:8080/docs`. Compose credentials are intentionally disposable
 local-development values; production deployments must inject database credentials from a secrets
 manager.
+
+The local console uses development identity headers for the example tenant. This is deliberately
+not a production authentication mechanism; deploy the API only after the Phase 2 OIDC/SAML identity
+broker replaces those headers.
