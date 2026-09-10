@@ -64,6 +64,15 @@ class OpenAICompatibleProvider:
     region: str = "local"
     timeout_seconds: float = 20.0
 
+    async def available_models(self) -> list[str]:
+        try:
+            async with httpx.AsyncClient(timeout=min(self.timeout_seconds, 5.0)) as client:
+                response = await client.get(f"{self.base_url.rstrip('/')}/models")
+                response.raise_for_status()
+                return [item["id"] for item in response.json()["data"]]
+        except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
+            raise ProviderError(f"{self.name} is unavailable") from exc
+
     async def decide(self, ticket: Ticket, chunks: list[RetrievedChunk]) -> Decision:
         evidence = "\n\n".join(f"[{c.id}] {c.content}" for c in chunks)
         payload = {
@@ -122,6 +131,18 @@ def lm_studio_provider(
 ) -> OpenAICompatibleProvider:
     return OpenAICompatibleProvider(
         name="lmstudio",
+        base_url=base_url,
+        model=model,
+        region="local",
+        timeout_seconds=timeout_seconds,
+    )
+
+
+def ollama_provider(
+    *, base_url: str, model: str, timeout_seconds: float = 60.0
+) -> OpenAICompatibleProvider:
+    return OpenAICompatibleProvider(
+        name="ollama",
         base_url=base_url,
         model=model,
         region="local",

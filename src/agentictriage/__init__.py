@@ -1,4 +1,4 @@
-"""AgenticTriage-AI public package."""
+"""AutoResolve public package."""
 
 from agentictriage.models import Action, Decision, Ticket
 

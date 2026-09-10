@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'AgenticTriage Operations',
-  description: 'Enterprise support-ticket triage operations and policy console.',
+  title: 'AutoResolve Operations',
+  description: 'Local-first support-ticket triage operations and policy console.',
 };
 
 export default function RootLayout({

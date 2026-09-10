@@ -134,7 +134,7 @@ values ('example', 'Example tenant', 'local')
 on conflict (id) do nothing;
 insert into tenant_policies
   (tenant_id, confidence_threshold, allowed_providers, allowed_regions)
-values ('example', 0.8, array['lmstudio'], array['local'])
+values ('example', 0.8, array['ollama', 'lmstudio'], array['local'])
 on conflict (tenant_id) do nothing;
 
 revoke update, delete, truncate on audit_events from triage_app;

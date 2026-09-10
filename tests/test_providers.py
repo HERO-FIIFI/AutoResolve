@@ -3,7 +3,7 @@ import json
 from typing import Any
 
 from agentictriage.models import RetrievedChunk, Ticket
-from agentictriage.providers import lm_studio_provider
+from agentictriage.providers import lm_studio_provider, ollama_provider
 
 
 class FakeResponse:
@@ -61,3 +61,27 @@ def test_lm_studio_uses_openai_compatible_endpoint(monkeypatch: Any) -> None:
     assert FakeClient.last_json is not None
     assert FakeClient.last_json["model"] == "local-test"
     assert FakeClient.last_json["response_format"]["type"] == "json_schema"
+
+
+def test_ollama_uses_its_own_provider_identity() -> None:
+    provider = ollama_provider(base_url="http://ollama:11434/v1", model="qwen2.5:7b")
+    assert provider.name == "ollama"
+    assert provider.model == "qwen2.5:7b"
+
+
+def test_provider_discovers_available_models(monkeypatch: Any) -> None:
+    class ModelResponse(FakeResponse):
+        def json(self) -> dict[str, Any]:
+            return {"data": [{"id": "qwen2.5:7b"}, {"id": "phi3:mini"}]}
+
+    class ModelClient(FakeClient):
+        def __init__(self, *, timeout: float) -> None:
+            assert timeout == 5
+
+        async def get(self, url: str) -> ModelResponse:
+            assert url == "http://ollama:11434/v1/models"
+            return ModelResponse()
+
+    monkeypatch.setattr("agentictriage.providers.httpx.AsyncClient", ModelClient)
+    provider = ollama_provider(base_url="http://ollama:11434/v1", model="qwen2.5:7b")
+    assert asyncio.run(provider.available_models()) == ["qwen2.5:7b", "phi3:mini"]

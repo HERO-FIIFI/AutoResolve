@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import secrets
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Annotated
@@ -10,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 
 from agentictriage.audit import AuditEvent
+from agentictriage.auth import issue_token, verify_token
 from agentictriage.config import Settings
 from agentictriage.fallback import FallbackRouter
 from agentictriage.jobs import JobPayload, JobRecord, JobReview, JobSubmission, PostgresJobQueue
@@ -22,6 +25,7 @@ from agentictriage.models import (
     Ticket,
 )
 from agentictriage.pipeline import TriagePipeline
+from agentictriage.providers import OpenAICompatibleProvider, ProviderError
 from agentictriage.storage import MemoryStateStore, PostgresStateStore, StateStore
 
 _settings = Settings.from_environment()
@@ -39,13 +43,15 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     else:
         store = MemoryStateStore()
     application.state.store = store
-    application.state.pipeline = TriagePipeline(FallbackRouter(_settings.providers()), store)
+    providers = _settings.providers()
+    application.state.providers = providers
+    application.state.pipeline = TriagePipeline(FallbackRouter(providers), store)
     yield
     if postgres:
         await postgres.close()
 
 
-app = FastAPI(title="AgenticTriage-AI", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="AutoResolve", version="0.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=list(_settings.cors_origins),
@@ -53,6 +59,7 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT"],
     allow_headers=[
         "Content-Type",
+        "Authorization",
         "Idempotency-Key",
         "X-Correlation-ID",
         "X-Roles",
@@ -81,11 +88,48 @@ class Identity(BaseModel):
     subject: str
 
 
+class LoginRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=200)
+    password: str = Field(min_length=1, max_length=500)
+
+
+class SessionResponse(BaseModel):
+    token: str
+    tenant_id: str
+    subject: str
+    roles: list[str]
+
+
+class ProviderStatus(BaseModel):
+    name: str
+    configured_model: str
+    reachable: bool
+    model_available: bool
+    models: list[str]
+
+
 def identity(
-    x_tenant_id: Annotated[str, Header()],
-    x_roles: Annotated[str, Header()],
+    authorization: Annotated[str | None, Header()] = None,
+    x_tenant_id: Annotated[str | None, Header()] = None,
+    x_roles: Annotated[str | None, Header()] = None,
     x_subject: Annotated[str, Header()] = "local-user",
 ) -> Identity:
+    if _settings.auth_secret:
+        if not authorization or not authorization.startswith("Bearer "):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="sign in required")
+        try:
+            claims = verify_token(_settings.auth_secret, authorization.removeprefix("Bearer "))
+            return Identity(
+                tenant_id=str(claims["tenant"]),
+                roles=frozenset(str(role) for role in claims["roles"]),
+                subject=str(claims["sub"]),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="session expired"
+            ) from exc
+    if not x_tenant_id or not x_roles:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="identity required")
     roles = frozenset(part.strip() for part in x_roles.split(",") if part.strip())
     return Identity(tenant_id=x_tenant_id, roles=roles, subject=x_subject)
 
@@ -115,6 +159,54 @@ async def health(raw_request: Request) -> dict[str, str]:
             detail="database unavailable",
         ) from exc
     return {"status": "ok"}
+
+
+@app.post("/v1/session", response_model=SessionResponse)
+async def create_session(credentials: LoginRequest) -> SessionResponse:
+    if not _settings.auth_secret or not _settings.admin_password:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="authentication unavailable"
+        )
+    if not (
+        secrets.compare_digest(credentials.username, _settings.admin_username)
+        and secrets.compare_digest(credentials.password, _settings.admin_password)
+    ):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid credentials")
+    roles = ["admin"]
+    return SessionResponse(
+        token=issue_token(
+            _settings.auth_secret,
+            subject=credentials.username,
+            tenant_id=_settings.admin_tenant_id,
+            roles=roles,
+        ),
+        tenant_id=_settings.admin_tenant_id,
+        subject=credentials.username,
+        roles=roles,
+    )
+
+
+async def _provider_status(provider: OpenAICompatibleProvider) -> ProviderStatus:
+    try:
+        models = await provider.available_models()
+    except ProviderError:
+        models = []
+    return ProviderStatus(
+        name=provider.name,
+        configured_model=provider.model,
+        reachable=bool(models),
+        model_available=provider.model in models,
+        models=models,
+    )
+
+
+@app.get("/v1/providers", response_model=list[ProviderStatus])
+async def list_providers(
+    raw_request: Request, principal: Annotated[Identity, Depends(identity)]
+) -> list[ProviderStatus]:
+    require_role(principal, "policy:read")
+    providers: list[OpenAICompatibleProvider] = raw_request.app.state.providers
+    return list(await asyncio.gather(*(_provider_status(provider) for provider in providers)))
 
 
 @app.post("/v1/triage", response_model=PipelineResult)

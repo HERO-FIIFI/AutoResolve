@@ -1,4 +1,24 @@
 services:
+  ollama:
+    image: ollama/ollama@sha256:684d8674b4315fa18f4f0e973a118ec2652ed96f67563277839985175858e0ba
+    gpus: all
+    environment:
+      OLLAMA_KEEP_ALIVE: 30m
+      OLLAMA_FLASH_ATTENTION: "true"
+      OLLAMA_NO_CLOUD: "true"
+    volumes:
+      - "${OLLAMA_MODELS_PATH:-D:/AI/Models/Ollama}:/root/.ollama"
+    ports:
+      - "127.0.0.1:11434:11434"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks: [triage-private]
+    restart: unless-stopped
+
   postgres:
     image: pgvector/pgvector:pg16
     environment:
@@ -24,6 +44,13 @@ services:
       TRIAGE_LMSTUDIO_BASE_URL: http://host.docker.internal:1234/v1
       TRIAGE_LMSTUDIO_MODEL: ${TRIAGE_LMSTUDIO_MODEL:-qwen/qwen3.5-9b}
       TRIAGE_LMSTUDIO_TIMEOUT_SECONDS: 60
+      TRIAGE_OLLAMA_BASE_URL: http://ollama:11434/v1
+      TRIAGE_OLLAMA_MODEL: ${TRIAGE_OLLAMA_MODEL:-qwen2.5:7b}
+      TRIAGE_OLLAMA_TIMEOUT_SECONDS: 90
+      TRIAGE_AUTH_SECRET: ${TRIAGE_AUTH_SECRET:-replace-this-local-signing-secret}
+      TRIAGE_ADMIN_USERNAME: ${TRIAGE_ADMIN_USERNAME:-admin}
+      TRIAGE_ADMIN_TENANT_ID: ${TRIAGE_ADMIN_TENANT_ID:-example}
+      TRIAGE_ADMIN_PASSWORD: ${TRIAGE_ADMIN_PASSWORD:-autoresolve-local}
       TRIAGE_CORS_ORIGINS: http://localhost:3080,http://127.0.0.1:3080
     ports:
       - "127.0.0.1:8080:8080"
@@ -47,6 +74,9 @@ services:
       TRIAGE_LMSTUDIO_BASE_URL: http://host.docker.internal:1234/v1
       TRIAGE_LMSTUDIO_MODEL: ${TRIAGE_LMSTUDIO_MODEL:-qwen/qwen3.5-9b}
       TRIAGE_LMSTUDIO_TIMEOUT_SECONDS: 60
+      TRIAGE_OLLAMA_BASE_URL: http://ollama:11434/v1
+      TRIAGE_OLLAMA_MODEL: ${TRIAGE_OLLAMA_MODEL:-qwen2.5:7b}
+      TRIAGE_OLLAMA_TIMEOUT_SECONDS: 90
     depends_on:
       postgres:
         condition: service_healthy

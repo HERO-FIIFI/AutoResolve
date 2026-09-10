@@ -19,7 +19,7 @@ app = typer.Typer(no_args_is_help=True)
 
 @app.callback()
 def main() -> None:
-    """Operate and test AgenticTriage-AI."""
+    """Operate and test AutoResolve."""
 
 
 @app.command()

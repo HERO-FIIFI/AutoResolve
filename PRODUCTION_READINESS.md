@@ -8,11 +8,11 @@ Status reflects repository evidence, not intended future work.
 | Secrets manager | Not Started | Interface/deployment selection pending; `.env` is local-only and ignored |
 | PII redaction and residency routing | In Progress | Basic redaction and provider allowlist; production DLP not integrated |
 | Encryption at rest/in transit | Not Started | Cloud/KMS target pending |
-| RBAC on all surfaces | In Progress | API dependency scaffold; enterprise IdP integration pending |
+| RBAC on all surfaces | In Progress | Signed local sessions and API role checks implemented; enterprise IdP integration pending |
 | Immutable access-controlled audit log | In Progress | PostgreSQL append-only application role implemented; external WORM sink pending |
 | GDPR export/deletion/retention | Not Started | Data lifecycle design pending |
 | Database tenant isolation | In Progress | PostgreSQL RLS schema and policies implemented; adversarial cross-tenant integration gate pending |
-| SSO (OIDC/SAML) | Not Started | Identity broker selection pending |
+| SSO (OIDC/SAML) | Not Started | Local HMAC session is for localhost only; identity broker selection pending |
 | Per-tenant policy | Done | RLS-backed, versioned policy is authoritative for sync and queued triage; RBAC administration API and audit events implemented |
 | Retry, timeout, and circuit breaker | Done | State machine and chaos tests |
 | Fail-safe all-provider behavior | Done | Explicit human escalation path and tests |
@@ -30,6 +30,6 @@ Status reflects repository evidence, not intended future work.
 | Load testing | Not Started | SLA/concurrency target pending |
 | Chaos testing | In Progress | Provider failure paths covered; infrastructure chaos pending |
 | Architecture/OpenAPI/runbooks/ADRs | In Progress | Architecture and initial ADRs present; runbooks incomplete |
-| Admin console | In Progress | Live policy, audit, escalation, and review workflows; enterprise SSO and remaining KB/observability surfaces pending |
+| Admin console | In Progress | AutoResolve shell, live provider checks, ticket test, policy, audit, escalation, responsive nav, theme, and accessible modal workflows implemented; enterprise SSO and observability surfaces pending |
 | CLI, REST API, webhooks | In Progress | CLI/API scaffolded; webhook delivery pending |
 | Cost governance | Not Started | Token accounting and tenant budget persistence pending |
