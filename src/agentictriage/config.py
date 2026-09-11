@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
-from agentictriage.providers import OpenAICompatibleProvider, lm_studio_provider, ollama_provider
+from .providers import OpenAICompatibleProvider, lm_studio_provider, ollama_provider
 
 
 @dataclass(frozen=True, slots=True)

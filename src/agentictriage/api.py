@@ -11,13 +11,13 @@ from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, Uplo
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 
-from agentictriage.audit import AuditEvent
-from agentictriage.auth import issue_token, verify_token
-from agentictriage.config import Settings
-from agentictriage.fallback import FallbackRouter
-from agentictriage.ingest import RowError, SheetFormatError, parse_tickets
-from agentictriage.jobs import JobPayload, JobRecord, JobReview, JobSubmission, PostgresJobQueue
-from agentictriage.models import (
+from .audit import AuditEvent
+from .auth import issue_token, verify_token
+from .config import Settings
+from .fallback import FallbackRouter
+from .ingest import RowError, SheetFormatError, parse_tickets
+from .jobs import JobPayload, JobRecord, JobReview, JobSubmission, PostgresJobQueue
+from .models import (
     AuditRecord,
     PipelineResult,
     RetrievedChunk,
@@ -25,9 +25,9 @@ from agentictriage.models import (
     TenantPolicyRecord,
     Ticket,
 )
-from agentictriage.pipeline import TriagePipeline
-from agentictriage.providers import OpenAICompatibleProvider, ProviderError
-from agentictriage.storage import MemoryStateStore, PostgresStateStore, StateStore
+from .pipeline import TriagePipeline
+from .providers import OpenAICompatibleProvider, ProviderError
+from .storage import MemoryStateStore, PostgresStateStore, StateStore
 
 _settings = Settings.from_environment()
 

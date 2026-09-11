@@ -6,7 +6,7 @@ from collections.abc import Iterator
 
 from pydantic import BaseModel, ValidationError
 
-from agentictriage.models import Ticket
+from .models import Ticket
 
 # ponytail: a flat row cap keeps one upload from queueing unbounded work.
 # Raise it, or stream straight to the queue, when someone actually needs more.

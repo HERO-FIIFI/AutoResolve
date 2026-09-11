@@ -5,7 +5,7 @@ import re
 from collections import Counter
 from collections.abc import Sequence
 
-from agentictriage.models import RetrievedChunk
+from .models import RetrievedChunk
 
 _TOKEN = re.compile(r"[a-z0-9]+")
 

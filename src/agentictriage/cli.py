@@ -8,11 +8,11 @@ from uuid import uuid4
 
 import typer
 
-from agentictriage.audit import InMemoryAuditSink
-from agentictriage.config import Settings
-from agentictriage.fallback import FallbackRouter
-from agentictriage.models import RetrievedChunk, TenantPolicy, Ticket
-from agentictriage.pipeline import TriagePipeline
+from .audit import InMemoryAuditSink
+from .config import Settings
+from .fallback import FallbackRouter
+from .models import RetrievedChunk, TenantPolicy, Ticket
+from .pipeline import TriagePipeline
 
 app = typer.Typer(no_args_is_help=True)
 

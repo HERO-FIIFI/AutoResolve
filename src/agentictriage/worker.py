@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import asyncio
 
-from agentictriage.config import Settings
-from agentictriage.fallback import FallbackRouter
-from agentictriage.jobs import PostgresJobQueue, run_worker
-from agentictriage.pipeline import TriagePipeline
-from agentictriage.storage import PostgresStateStore
+from .config import Settings
+from .fallback import FallbackRouter
+from .jobs import PostgresJobQueue, run_worker
+from .pipeline import TriagePipeline
+from .storage import PostgresStateStore
 
 
 async def main() -> None:

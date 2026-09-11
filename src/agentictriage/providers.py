@@ -6,7 +6,7 @@ from typing import Protocol
 
 import httpx
 
-from agentictriage.models import Decision, RetrievedChunk, Ticket
+from .models import Decision, RetrievedChunk, Ticket
 
 _DECISION_RESPONSE_SCHEMA = {
     "type": "object",

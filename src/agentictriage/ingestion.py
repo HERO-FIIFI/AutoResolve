@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from agentictriage.models import Ticket
+from .models import Ticket
 
 _INJECTION_PATTERNS = (
     re.compile(r"\bignore\s+(all\s+)?previous\s+instructions\b", re.IGNORECASE),

@@ -6,8 +6,8 @@ from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-from agentictriage.models import Decision, RetrievedChunk, TenantPolicy, Ticket
-from agentictriage.providers import ModelProvider, ProviderError
+from .models import Decision, RetrievedChunk, TenantPolicy, Ticket
+from .providers import ModelProvider, ProviderError
 
 
 class CircuitState(StrEnum):

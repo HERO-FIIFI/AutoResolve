@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from agentictriage.audit import AuditEvent, AuditSink
-from agentictriage.fallback import FallbackRouter, ProvidersExhausted
-from agentictriage.ingestion import inspect_and_redact
-from agentictriage.models import (
+from .audit import AuditEvent, AuditSink
+from .fallback import FallbackRouter, ProvidersExhausted
+from .ingestion import inspect_and_redact
+from .models import (
     Action,
     Decision,
     PipelineResult,
@@ -13,8 +13,8 @@ from agentictriage.models import (
     TenantPolicy,
     Ticket,
 )
-from agentictriage.retrieval import rank_chunks
-from agentictriage.verification import verify_decision
+from .retrieval import rank_chunks
+from .verification import verify_decision
 
 
 def escalation(reason: str) -> Decision:

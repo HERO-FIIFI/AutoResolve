@@ -10,8 +10,8 @@ from typing import Any
 import asyncpg
 from pydantic import BaseModel, Field, model_validator
 
-from agentictriage.models import PipelineResult, RetrievedChunk, TenantPolicy, Ticket
-from agentictriage.pipeline import TriagePipeline
+from .models import PipelineResult, RetrievedChunk, TenantPolicy, Ticket
+from .pipeline import TriagePipeline
 
 
 class JobPayload(BaseModel):

@@ -5,8 +5,8 @@ from typing import Protocol
 
 import asyncpg
 
-from agentictriage.audit import AuditEvent, AuditSink
-from agentictriage.models import AuditRecord, PipelineResult, TenantPolicy, TenantPolicyRecord
+from .audit import AuditEvent, AuditSink
+from .models import AuditRecord, PipelineResult, TenantPolicy, TenantPolicyRecord
 
 
 class StateStore(AuditSink, Protocol):

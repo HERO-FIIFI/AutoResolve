@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from agentictriage.models import Action, Decision, RetrievedChunk
+from .models import Action, Decision, RetrievedChunk
 
 
 @dataclass(frozen=True, slots=True)
