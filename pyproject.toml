@@ -61,4 +61,4 @@ module = "openpyxl.*"
 ignore_missing_imports = true
 
 [tool.vercel]
-entrypoint = "src.agentictriage.api:app"
+entrypoint = "api:app"
