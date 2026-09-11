@@ -6,6 +6,11 @@ from dataclasses import dataclass
 from .providers import OpenAICompatibleProvider, lm_studio_provider, ollama_provider
 
 
+def _environment_float(name: str, default: float) -> float:
+    value = os.getenv(name)
+    return default if value is None or not value.strip() else float(value)
+
+
 @dataclass(frozen=True, slots=True)
 class Settings:
     database_url: str | None = None
@@ -27,10 +32,12 @@ class Settings:
             database_url=os.getenv("TRIAGE_DATABASE_URL"),
             lmstudio_base_url=os.getenv("TRIAGE_LMSTUDIO_BASE_URL", "http://127.0.0.1:1234/v1"),
             lmstudio_model=os.getenv("TRIAGE_LMSTUDIO_MODEL", "local-model"),
-            lmstudio_timeout_seconds=float(os.getenv("TRIAGE_LMSTUDIO_TIMEOUT_SECONDS", "20")),
+            lmstudio_timeout_seconds=_environment_float(
+                "TRIAGE_LMSTUDIO_TIMEOUT_SECONDS", 20.0
+            ),
             ollama_base_url=os.getenv("TRIAGE_OLLAMA_BASE_URL", "http://127.0.0.1:11434/v1"),
             ollama_model=os.getenv("TRIAGE_OLLAMA_MODEL", "qwen2.5:7b"),
-            ollama_timeout_seconds=float(os.getenv("TRIAGE_OLLAMA_TIMEOUT_SECONDS", "60")),
+            ollama_timeout_seconds=_environment_float("TRIAGE_OLLAMA_TIMEOUT_SECONDS", 60.0),
             auth_secret=os.getenv("TRIAGE_AUTH_SECRET"),
             admin_username=os.getenv("TRIAGE_ADMIN_USERNAME", "admin"),
             admin_tenant_id=os.getenv("TRIAGE_ADMIN_TENANT_ID", "example"),
