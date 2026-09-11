@@ -14,4 +14,4 @@ RUN addgroup -S triage && adduser -S triage -G triage
 COPY --from=build --chown=triage:triage /app ./
 USER triage
 EXPOSE 3000
-CMD ["npm", "run", "start", "--", "--host", "0.0.0.0", "--port", "3000"]
+CMD ["npm", "run", "start", "--", "--hostname", "0.0.0.0", "--port", "3000"]
