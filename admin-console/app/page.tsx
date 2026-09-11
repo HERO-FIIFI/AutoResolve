@@ -2,7 +2,12 @@
 
 import { FormEvent, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 
-const apiUrl = process.env.NEXT_PUBLIC_TRIAGE_API_URL ?? 'http://localhost:8080';
+const configuredApiUrl = process.env.NEXT_PUBLIC_TRIAGE_API_URL?.trim();
+const apiUrl = configuredApiUrl || (
+  process.env.NODE_ENV === 'production'
+    ? 'https://autoresolvehackerrank.vercel.app'
+    : 'http://localhost:8080'
+);
 
 type View = 'overview' | 'triage' | 'queue' | 'audit' | 'settings';
 type Session = { token: string; tenant_id: string; subject: string; roles: string[] };

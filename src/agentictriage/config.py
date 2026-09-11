@@ -11,6 +11,12 @@ def _environment_float(name: str, default: float) -> float:
     return default if value is None or not value.strip() else float(value)
 
 
+def _environment_csv(name: str, default: str) -> tuple[str, ...]:
+    value = os.getenv(name)
+    source = default if value is None or not value.strip() else value
+    return tuple(part.strip() for part in source.split(",") if part.strip())
+
+
 @dataclass(frozen=True, slots=True)
 class Settings:
     database_url: str | None = None
@@ -24,7 +30,11 @@ class Settings:
     admin_username: str = "admin"
     admin_tenant_id: str = "example"
     admin_password: str | None = None
-    cors_origins: tuple[str, ...] = ("http://localhost:3080", "http://localhost:3004")
+    cors_origins: tuple[str, ...] = (
+        "http://localhost:3080",
+        "http://localhost:3004",
+        "https://autoresolve-sage.vercel.app",
+    )
 
     @classmethod
     def from_environment(cls) -> Settings:
@@ -42,14 +52,11 @@ class Settings:
             admin_username=os.getenv("TRIAGE_ADMIN_USERNAME", "admin"),
             admin_tenant_id=os.getenv("TRIAGE_ADMIN_TENANT_ID", "example"),
             admin_password=os.getenv("TRIAGE_ADMIN_PASSWORD"),
-            cors_origins=tuple(
-                origin.strip()
-                for origin in os.getenv(
-                    "TRIAGE_CORS_ORIGINS",
-                    "http://localhost:3080,http://127.0.0.1:3080,"
-                    "http://localhost:3004,http://127.0.0.1:3004",
-                ).split(",")
-                if origin.strip()
+            cors_origins=_environment_csv(
+                "TRIAGE_CORS_ORIGINS",
+                "http://localhost:3080,http://127.0.0.1:3080,"
+                "http://localhost:3004,http://127.0.0.1:3004,"
+                "https://autoresolve-sage.vercel.app",
             ),
         )
 
