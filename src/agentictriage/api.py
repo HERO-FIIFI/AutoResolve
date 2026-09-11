@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from typing import Annotated
 from uuid import UUID, uuid4
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
+from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -15,6 +15,7 @@ from agentictriage.audit import AuditEvent
 from agentictriage.auth import issue_token, verify_token
 from agentictriage.config import Settings
 from agentictriage.fallback import FallbackRouter
+from agentictriage.ingest import RowError, SheetFormatError, parse_tickets
 from agentictriage.jobs import JobPayload, JobRecord, JobReview, JobSubmission, PostgresJobQueue
 from agentictriage.models import (
     AuditRecord,
@@ -29,6 +30,10 @@ from agentictriage.providers import OpenAICompatibleProvider, ProviderError
 from agentictriage.storage import MemoryStateStore, PostgresStateStore, StateStore
 
 _settings = Settings.from_environment()
+
+# ponytail: a flat cap, read before parsing. Swap for streaming-to-disk if
+# anyone needs to ingest sheets bigger than this.
+MAX_UPLOAD_BYTES = 10 * 1_048_576
 
 
 @asynccontextmanager
@@ -74,6 +79,14 @@ class TriageRequest(BaseModel):
 
     ticket: Ticket
     knowledge_base: list[RetrievedChunk] = Field(default_factory=list, max_length=100)
+
+
+class BatchIngestResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    accepted: int
+    rejected: list[RowError]
+    jobs: list[JobSubmission]
 
 
 class PolicyUpdate(BaseModel):
@@ -262,6 +275,56 @@ async def enqueue_triage(
         knowledge_base=request.knowledge_base,
     )
     return await queue.enqueue(principal.tenant_id, idempotency_key, payload)
+
+
+@app.post(
+    "/v1/triage/batch",
+    response_model=BatchIngestResult,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def ingest_batch(
+    raw_request: Request,
+    principal: Annotated[Identity, Depends(identity)],
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8, max_length=200)],
+    x_correlation_id: Annotated[
+        str, Header(alias="X-Correlation-ID", min_length=8, max_length=200)
+    ],
+    file: Annotated[UploadFile, File()],
+) -> BatchIngestResult:
+    """Enqueue one triage job per row of an uploaded CSV or .xlsx sheet."""
+    require_role(principal, "triage:write")
+    queue: PostgresJobQueue | None = getattr(raw_request.app.state, "jobs", None)
+    if queue is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="durable queue unavailable",
+        )
+
+    data = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"file exceeds {MAX_UPLOAD_BYTES // 1_048_576} MiB",
+        )
+    try:
+        sheet = parse_tickets(data, file.filename or "", tenant_id=principal.tenant_id)
+    except SheetFormatError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    policy = await policy_for(raw_request.app.state.store, principal)
+    jobs: list[JobSubmission] = []
+    for ticket in sheet.tickets:
+        payload = JobPayload(
+            ticket=ticket,
+            correlation_id=x_correlation_id,
+            policy=policy,
+            knowledge_base=[],
+        )
+        # Scoping the key by ticket id makes re-uploading the same sheet a no-op.
+        jobs.append(
+            await queue.enqueue(principal.tenant_id, f"{idempotency_key}:{ticket.id}", payload)
+        )
+    return BatchIngestResult(accepted=len(jobs), rejected=sheet.errors, jobs=jobs)
 
 
 @app.get("/v1/policy", response_model=TenantPolicyRecord)
